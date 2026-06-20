@@ -57,11 +57,37 @@
     opacity:.16;
     mask-image:radial-gradient(ellipse 80% 60% at 50% 0%, #000 30%, transparent 75%);
   }
-  #codeRainWrap{
-    position:fixed; inset:0; z-index:0; pointer-events:none;
-    opacity:.5; mix-blend-mode:screen;
+
+  .code-bg-wrap{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    display:flex; gap:6vw; justify-content:center;
+    padding:0 4vw;
+    mask-image:linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent),
+               linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    -webkit-mask-image:linear-gradient(to bottom, transparent, #000 8%, #000 92%, transparent),
+               linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    mask-composite:intersect; -webkit-mask-composite:source-in;
   }
-  #codeRain{ width:100%; height:100%; display:block; }
+  .code-col{
+    font-family:var(--mono); font-size:13.5px; line-height:1.9; white-space:pre;
+    color:rgba(173,186,201,.34);
+    animation:codeScroll 70s linear infinite;
+    flex:0 0 auto;
+  }
+  .code-col:nth-child(2){ animation-duration:84s; animation-direction:reverse; }
+  .code-col .kw{ color:rgba(52,224,196,.5); }
+  .code-col .st{ color:rgba(255,180,84,.46); }
+  .code-col .fn{ color:rgba(156,140,255,.46); }
+  .code-col .cm{ color:rgba(134,147,166,.4); font-style:italic; }
+  @keyframes codeScroll{
+    from{ transform:translateY(0); }
+    to{ transform:translateY(-50%); }
+  }
+  @media (max-width:880px){
+    .code-bg-wrap{ gap:0; }
+    .code-col:nth-child(2){ display:none; }
+    .code-col{ font-size:12px; margin:0 auto; }
+  }
 
   /* ---------- nav ---------- */
   .lr-nav{
@@ -193,7 +219,7 @@
   /* ---- exploded 3D stack ---- */
   .stack-stage{
     position:relative; width:100%; max-width:480px; height:340px;
-    perspective:1300px; margin-left:6px;
+    perspective:1300px; margin-left:6px; margin-bottom:90px;
   }
   .stack-group{
     position:absolute; inset:0; transform-style:preserve-3d;
@@ -394,7 +420,7 @@
   @media (max-width:640px){
     .wrap{ padding:0 22px; }
     .hero{ padding-top:120px; }
-    .stack-stage{ height:260px; max-width:300px; perspective:900px; }
+    .stack-stage{ height:260px; max-width:300px; perspective:900px; margin-bottom:170px; }
     .layer{ width:230px; height:50px; padding:0 14px; }
     .layer .tier-label{ font-size:11.5px; }
     .layer .tier-sub{ font-size:9.5px; }
@@ -419,7 +445,83 @@
 <body>
 
 <div class="grid-field"></div>
-<div id="codeRainWrap"><canvas id="codeRain"></canvas></div>
+<div class="code-bg-wrap" aria-hidden="true">
+  <pre class="code-col"><code><span class="cm">// auth.middleware.js</span>
+<span class="kw">const</span> jwt = <span class="fn">require</span>(<span class="st">'jsonwebtoken'</span>);
+
+<span class="kw">function</span> <span class="fn">authenticate</span>(req, res, next) {
+  <span class="kw">const</span> header = req.headers.authorization;
+  <span class="kw">const</span> token = header?.<span class="fn">split</span>(<span class="st">' '</span>)[1];
+
+  <span class="kw">if</span> (!token) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(401).<span class="fn">json</span>({
+      error: <span class="st">'No token provided'</span>
+    });
+  }
+
+  <span class="kw">try</span> {
+    req.user = jwt.<span class="fn">verify</span>(token, process.env.JWT_SECRET);
+    <span class="fn">next</span>();
+  } <span class="kw">catch</span> (err) {
+    res.<span class="fn">status</span>(403).<span class="fn">json</span>({ error: <span class="st">'Invalid token'</span> });
+  }
+}
+
+<span class="kw">module</span>.exports = { authenticate };
+
+<span class="cm">// users.route.js</span>
+router.<span class="fn">get</span>(<span class="st">'/api/users/:id'</span>, authenticate, <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> [rows] = <span class="kw">await</span> db.<span class="fn">query</span>(
+    <span class="st">'SELECT id, name, email FROM users WHERE id = ?'</span>,
+    [req.params.id]
+  );
+  <span class="kw">if</span> (!rows.length) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(404).<span class="fn">json</span>({ error: <span class="st">'Not found'</span> });
+  }
+  res.<span class="fn">json</span>(rows[0]);
+});
+</code></pre>
+  <pre class="code-col"><code><span class="cm">// auth.controller.js</span>
+router.<span class="fn">post</span>(<span class="st">'/api/auth/login'</span>, <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> { email, password } = req.body;
+  <span class="kw">const</span> user = <span class="kw">await</span> User.<span class="fn">findOne</span>({ email });
+
+  <span class="kw">if</span> (!user) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(404).<span class="fn">json</span>({
+      error: <span class="st">'User not found'</span>
+    });
+  }
+
+  <span class="kw">const</span> valid = <span class="kw">await</span> bcrypt.<span class="fn">compare</span>(
+    password, user.password
+  );
+  <span class="kw">if</span> (!valid) {
+    <span class="kw">return</span> res.<span class="fn">status</span>(401).<span class="fn">json</span>({
+      error: <span class="st">'Invalid credentials'</span>
+    });
+  }
+
+  <span class="kw">const</span> token = jwt.<span class="fn">sign</span>(
+    { id: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: <span class="st">'24h'</span> }
+  );
+
+  res.<span class="fn">status</span>(200).<span class="fn">json</span>({
+    token,
+    user: { id: user.id, name: user.name }
+  });
+});
+
+<span class="cm">// schema.sql</span>
+<span class="kw">CREATE</span> <span class="kw">TABLE</span> users (
+  id <span class="kw">INT</span> <span class="kw">PRIMARY</span> <span class="kw">KEY</span> AUTO_INCREMENT,
+  email <span class="kw">VARCHAR</span>(255) <span class="kw">UNIQUE</span> <span class="kw">NOT</span> <span class="kw">NULL</span>,
+  password_hash <span class="kw">VARCHAR</span>(255) <span class="kw">NOT</span> <span class="kw">NULL</span>,
+  role <span class="kw">ENUM</span>(<span class="st">'admin'</span>,<span class="st">'user'</span>) <span class="kw">DEFAULT</span> <span class="st">'user'</span>
+);
+</code></pre>
+</div>
 
 <nav class="lr-nav">
   <a href="#top" class="logo"><span class="dot"></span>LIVIN_R</a>
@@ -693,89 +795,117 @@
 
 <script>
 (function(){
-  // ---- code rain background ----
-  var canvas = document.getElementById('codeRain');
-  var ctx = canvas.getContext('2d');
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var tokens = ['{ }','( )','[ ]','=>','const','let','async','await','req','res','API',
-    'JWT','SQL','npm','git','0','1','true','false','null','==','!=','&&','||','</>','fn()','GET','POST'];
-  var fontSize = 15, columns, drops, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  // ---- code rain background (lightweight, rAF-throttled) ----
+  try {
+    var canvas = document.getElementById('codeRain');
+    var ctx = canvas.getContext('2d');
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var tokens = ['{ }','( )','[ ]','=>','const','let','async','await','req','res','API',
+      'JWT','SQL','npm','git','0','1','true','false','null','==','!=','&&','||','</>','fn()','GET','POST'];
+    var fontSize = 16, columns, drops, dpr = 1; // capped at 1 — avoids the desktop slowdown from before
 
-  function resize(){
-    canvas.width = window.innerWidth * dpr;
-    canvas.height = window.innerHeight * dpr;
-    canvas.style.width = window.innerWidth + 'px';
-    canvas.style.height = window.innerHeight + 'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    columns = Math.floor(window.innerWidth / fontSize);
-    drops = new Array(columns).fill(0).map(function(){ return Math.random() * -60; });
-  }
-  resize();
-  window.addEventListener('resize', resize);
-
-  function frame(){
-    ctx.fillStyle = 'rgba(9,12,16,0.10)';
-    ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
-    ctx.font = fontSize + 'px JetBrains Mono, monospace';
-    for (var i=0; i<columns; i++){
-      var t = tokens[(Math.random()*tokens.length)|0];
-      var x = i*fontSize, y = drops[i]*fontSize;
-      ctx.fillStyle = Math.random() > 0.95 ? 'rgba(255,180,84,.8)' : 'rgba(52,224,196,.5)';
-      ctx.fillText(t, x, y);
-      if (y > window.innerHeight && Math.random() > 0.975) drops[i] = 0;
-      drops[i] += 1;
+    function rrresize(){
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      columns = Math.floor(window.innerWidth / fontSize / 1.6); // fewer columns = lighter
+      drops = new Array(columns).fill(0).map(function(){ return Math.random() * -60; });
     }
-  }
+    rrresize();
+    window.addEventListener('resize', rrresize);
 
-  if (!reduced){
-    setInterval(frame, 60);
-  } else {
-    ctx.fillStyle = 'rgba(9,12,16,1)';
-    ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
-  }
+    function rrframe(){
+      ctx.fillStyle = 'rgba(9,12,16,0.14)';
+      ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
+      ctx.font = fontSize + 'px JetBrains Mono, monospace';
+      for (var i=0; i<columns; i++){
+        var t = tokens[(Math.random()*tokens.length)|0];
+        var x = i*fontSize*1.6, y = drops[i]*fontSize;
+        ctx.fillStyle = Math.random() > 0.95 ? 'rgba(255,180,84,.75)' : 'rgba(52,224,196,.42)';
+        ctx.fillText(t, x, y);
+        if (y > window.innerHeight && Math.random() > 0.975) drops[i] = 0;
+        drops[i] += 1;
+      }
+    }
+
+    var rainRunning = !reduced;
+    var lastTs = 0, rafId;
+    function rrloop(ts){
+      if (!rainRunning) return;
+      if (ts - lastTs > 90) { rrframe(); lastTs = ts; } // throttled to ~11fps — ambient, not CPU-hungry
+      rafId = requestAnimationFrame(rrloop);
+    }
+    if (!reduced){
+      rafId = requestAnimationFrame(rrloop);
+      document.addEventListener('visibilitychange', function(){
+        if (document.hidden) { rainRunning = false; cancelAnimationFrame(rafId); }
+        else { rainRunning = true; rafId = requestAnimationFrame(rrloop); }
+      });
+    } else {
+      ctx.fillStyle = 'rgba(9,12,16,1)';
+      ctx.fillRect(0,0,window.innerWidth, window.innerHeight);
+    }
+  } catch(e) { /* purely decorative — never let it block the rest of the page */ }
 
   // ---- mobile menu ----
-  var menuBtn = document.getElementById('menuBtn');
-  var closeMenu = document.getElementById('closeMenu');
-  var mobileMenu = document.getElementById('mobileMenu');
-  menuBtn.addEventListener('click', function(){ mobileMenu.classList.add('open'); });
-  closeMenu.addEventListener('click', function(){ mobileMenu.classList.remove('open'); });
-  mobileMenu.querySelectorAll('a').forEach(function(a){
-    a.addEventListener('click', function(){ mobileMenu.classList.remove('open'); });
-  });
-
-  // ---- hero stack assemble on load ----
-  var stackStage = document.getElementById('stackStage');
-  requestAnimationFrame(function(){
-    setTimeout(function(){ stackStage.classList.add('assembled'); }, 250);
-  });
-
-  // ---- mouse parallax tilt on hero stack (pointer:fine only) ----
-  var stackGroup = document.querySelector('.stack-group');
-  if (window.matchMedia('(pointer:fine)').matches) {
-    document.querySelector('.hero').addEventListener('mousemove', function(e){
-      var w = window.innerWidth, h = window.innerHeight;
-      var dx = (e.clientX / w - 0.5);
-      var dy = (e.clientY / h - 0.5);
-      var rz = dx * 10;
-      var rx = 58 - dy * 8;
-      stackGroup.style.transform = 'rotateX(' + rx + 'deg) rotateZ(' + rz + 'deg)';
+  try {
+    var menuBtn = document.getElementById('menuBtn');
+    var closeMenu = document.getElementById('closeMenu');
+    var mobileMenu = document.getElementById('mobileMenu');
+    menuBtn.addEventListener('click', function(){ mobileMenu.classList.add('open'); });
+    closeMenu.addEventListener('click', function(){ mobileMenu.classList.remove('open'); });
+    mobileMenu.querySelectorAll('a').forEach(function(a){
+      a.addEventListener('click', function(){ mobileMenu.classList.remove('open'); });
     });
-  }
+  } catch(e) {}
+
+  // ---- hero stack assemble on load + mouse parallax (rAF-throttled) ----
+  try {
+    var stackStage = document.getElementById('stackStage');
+    requestAnimationFrame(function(){
+      setTimeout(function(){ stackStage.classList.add('assembled'); }, 250);
+    });
+
+    var stackGroup = document.querySelector('.stack-group');
+    if (window.matchMedia('(pointer:fine)').matches && stackGroup) {
+      var heroTicking = false, heroLastEvent = null;
+      document.querySelector('.hero').addEventListener('mousemove', function(e){
+        heroLastEvent = e;
+        if (!heroTicking) {
+          heroTicking = true;
+          requestAnimationFrame(function(){
+            var w = window.innerWidth, h = window.innerHeight;
+            var dx = (heroLastEvent.clientX / w - 0.5);
+            var dy = (heroLastEvent.clientY / h - 0.5);
+            var rz = dx * 10;
+            var rx = 58 - dy * 8;
+            stackGroup.style.transform = 'rotateX(' + rx + 'deg) rotateZ(' + rz + 'deg)';
+            heroTicking = false;
+          });
+        }
+      }, { passive: true });
+    }
+  } catch(e) {}
 
   // ---- scroll reveal ----
-  var revealEls = document.querySelectorAll('.reveal3d');
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(entry){
-      if (entry.isIntersecting) {
-        entry.target.classList.add('is-in');
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.18, rootMargin: '0px 0px -60px 0px' });
-  revealEls.forEach(function(el){ io.observe(el); });
+  try {
+    var revealEls = document.querySelectorAll('.reveal3d');
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.18, rootMargin: '0px 0px -60px 0px' });
+    revealEls.forEach(function(el){ io.observe(el); });
+  } catch(e) {}
 
   // ---- nav active link + scroll progress pipeline ----
+  try {
+  var scrollTicking = false;
   var sections = ['about','stack','experience','work','contact'].map(function(id){
     return document.getElementById(id);
   });
@@ -820,25 +950,41 @@
     });
   }
 
-  window.addEventListener('scroll', onScroll, { passive:true });
+  window.addEventListener('scroll', function(){
+    if (!scrollTicking) {
+      scrollTicking = true;
+      requestAnimationFrame(function(){ onScroll(); scrollTicking = false; });
+    }
+  }, { passive:true });
   window.addEventListener('resize', layoutTicks);
   layoutTicks();
   onScroll();
+  } catch(e) {}
 
-  // ---- project card hover tilt ----
-  if (window.matchMedia('(pointer:fine)').matches) {
-    document.querySelectorAll('[data-tilt]').forEach(function(card){
-      card.addEventListener('mousemove', function(e){
-        var r = card.getBoundingClientRect();
-        var px = (e.clientX - r.left) / r.width - 0.5;
-        var py = (e.clientY - r.top) / r.height - 0.5;
-        card.style.transform = 'perspective(700px) rotateX(' + (-py*8) + 'deg) rotateY(' + (px*8) + 'deg) translateZ(6px)';
+  // ---- project card hover tilt (rAF-throttled) ----
+  try {
+    if (window.matchMedia('(pointer:fine)').matches) {
+      document.querySelectorAll('[data-tilt]').forEach(function(card){
+        var ticking = false, lastEvent = null;
+        card.addEventListener('mousemove', function(e){
+          lastEvent = e;
+          if (!ticking) {
+            ticking = true;
+            requestAnimationFrame(function(){
+              var r = card.getBoundingClientRect();
+              var px = (lastEvent.clientX - r.left) / r.width - 0.5;
+              var py = (lastEvent.clientY - r.top) / r.height - 0.5;
+              card.style.transform = 'perspective(700px) rotateX(' + (-py*8) + 'deg) rotateY(' + (px*8) + 'deg) translateZ(6px)';
+              ticking = false;
+            });
+          }
+        }, { passive: true });
+        card.addEventListener('mouseleave', function(){
+          card.style.transform = 'perspective(700px) rotateX(0) rotateY(0) translateZ(0)';
+        });
       });
-      card.addEventListener('mouseleave', function(){
-        card.style.transform = 'perspective(700px) rotateX(0) rotateY(0) translateZ(0)';
-      });
-    });
-  }
+    }
+  } catch(e) {}
 })();
 </script>
 
